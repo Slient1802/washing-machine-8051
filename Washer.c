@@ -1,120 +1,91 @@
-#include "Main.h"
-#include "Port.h"
-#include "Washer.h"
+#include "Main.H"
+#include "Port.H"
+#include "Washer.H"
 
-// PROGRAMS AVAILABLE
-tByte program_dry[] = {DRY, REPEAT, FINISH};
+unsigned char trang_thai = 0;
+unsigned char count = 0;
 
-tByte program_wash[] = {ADD_DETERGENT, ADD_WATER, HEAT, SPIN_MOTOR, TOGGLE_MOTOR, DRAIN_WATER, DRY, REPEAT, FINISH};
-
-tByte program_light_wash[] = {ADD_DETERGENT, ADD_WATER, HEAT, TOGGLE_MOTOR, DRAIN_WATER, DRY, REPEAT, FINISH};
-
-tByte program_very_light_wash[] = {ADD_DETERGENT, ADD_WATER, HEAT, SPIN_MOTOR, DRAIN_WATER, DRY, REPEAT, FINISH};
-
-
-bit feature_heat;
-bit feature_dry;
-bit feature_double;
-
-void washer_off_all() {
-	motor_fast = OFF;
-	motor_slow = OFF;
-	motor_reverse = OFF;
-	water_drain = OFF;
-	
-	door_lock = OFF;
-	heater = OFF;
-	water_valve = OFF;
-	detergent_valve = OFF;
-
-	error = OFF;
+void function1(void);
+void function2(void);
+void os(void);
+////////////////////	
+void UsartConfiguration()
+{
+	  SCON = 0x50;             // Che do UART 8-bit, cho phép nhan
+    TMOD |= 0x20;            // Timer 1 ? che do 8-bit t? d?ng nap lai // 32
+    TH1 = 0xFD;              // Toc do baud 9600 cho 11.0592 MHz // 253
+    TR1 = 1;                 // Khoi dong Timer 1
+    EA = 1;  					
 }
+///////////////////
+void change_state(){
+    count++;
+    switch (count) {
+        case 20:
+            trang_thai = 1;  
+            break;
+        case 30:
+            trang_thai = 2;  
+            count = 0;       
+            break;
+        default:
+            break;
+    }
+    os();
+}
+///////////////////
+void os(){
+    switch (trang_thai) {
+        case 1:
+            function1();  trang_thai = 3;
+            break;
+        case 2:
+            function2();  trang_thai = 3;
+            break;
+				case 3:
+            break;
+    }
+}
+////////////////////////
 
-void washer_program_features(tByte program_number, tByte *features)
-{  
-	if(program_number == 6
-	|| program_number == 14
-	|| program_number == 18) { // -- COLD WET -- //
-		features[0] = FALSE;  	// heat
-		features[1] = FALSE;	// dry
-		features[2] = FALSE; 	// double
- 
-	}  else if(program_number == 5
-	|| program_number == 13
-	|| program_number == 17) { // -- WET -- //
-		features[0] = TRUE;  	// heat
-		features[1] = FALSE;	 // dry
-		features[2] = FALSE; 	// double
-	} else if(program_number == 1
-	|| program_number == 4
-	|| program_number == 12
-	|| program_number == 16) { // -- COLD -- //
-		features[0] = FALSE;  	// heat
-		features[1] = TRUE;	 	// dry
-		features[2] = FALSE; 	// double
+void txdata(char c) {
+    SBUF = c;
+    while (!TI);    // Ch? truyen xong
+    TI = 0;         // Xóa c? truyen
+} 
 
-	} else if(program_number == 3
-	|| program_number == 11
-	|| program_number == 15) { // -- NORMAL -- //
-		features[0] = TRUE;  	// heat
-		features[1] = TRUE;	 	// dry
-		features[2] = FALSE; 	// double
-
-	} else if(program_number == 10) { // -- HEAVY COLD WET -- //
-		features[0] = FALSE;  	// heat
-		features[1] = FALSE;	// dry
-		features[2] = TRUE; 	// double
- 
-	}  else if(program_number == 9) { // -- HEAVY WET -- //
-		features[0] = TRUE;  	// heat
-		features[1] = FALSE;	// dry
-		features[2] = TRUE; 	// double
-
-	} else if(program_number == 2
-	|| program_number == 8) { // -- HEAVY COLD -- //
-		features[0] = FALSE;  	// heat
-		features[1] = TRUE;	 	// dry
-		features[2] = TRUE; 	// double
-
-	} else if(program_number == 7) { // -- HEAVY -- //
-		features[0] = TRUE;  	// heat
-		features[1] = TRUE;	 	// dry
-		features[2] = TRUE; 	// double
-
+void txString(unsigned char *str){
+	while (*str != '\0')
+	{
+		txdata(*str);
+		++str;
 	}
 }
-tByte washer_get_program_step(tByte program_number, int step_number) {
-	if(program_number == 1
-	|| program_number == 2) {
-		return program_dry[step_number];
- 
-	} else if(program_number == 3
-	|| program_number == 4
-	|| program_number == 5
-	|| program_number == 6
-	|| program_number == 7
-	|| program_number == 8
-	|| program_number == 9
-	|| program_number == 10) {
-		return program_wash[step_number];
- 
-	} else if(program_number == 11
-	|| program_number == 12
-	|| program_number == 13
-	|| program_number == 14) {
-		return program_light_wash[step_number];
-
-	} else if(program_number == 15
-	|| program_number == 16
-	|| program_number == 17
-	|| program_number == 18) {
-		return program_very_light_wash[step_number];
-
+////////////////////
+void txInt(int num){
+	unsigned char i = 0, c[10];			// So nguyen nho hon 10 chu so
+	int temp;
+	temp = num; 
+	if (temp != 0){
+		if (temp < 0){
+			txdata('-');
+			temp = - temp; 
+		}
+		while(temp){
+			c[i++] = temp%10; 
+			temp /= 10;
+		}	 
+	while(i) txdata(c[--i] + '0');
 	}
+	else txdata('0');
 }
-
-
-
-/*------------------------------------------------------------*-
----- END OF FILE --------------------------------------------
--*------------------------------------------------------------*/
+////////////////
+void function1(){
+	txString("		;	Ham 1: ");	
+	txInt(count);
+}
+void function2(){
+	txString("		;	Ham 2: ");
+	txInt(count);
+}
+/////////////////
